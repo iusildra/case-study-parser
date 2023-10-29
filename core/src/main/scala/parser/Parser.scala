@@ -16,13 +16,15 @@
 
 package parser
 
-import cats.Functor
 import cats.kernel.Monoid
-import cats.Applicative
+import cats.syntax.semigroup._
 
-sealed trait Parser[A] {
-  def map[B](f: A => B): Parser[B] =
-    ParserMap(this, f)
+/* -------------------------------------------------------------------------- */
+/*                                General type                                */
+/* -------------------------------------------------------------------------- */
+sealed trait Parser[A: Monoid] {
+  def map[B: Monoid](f: A => B): Parser[B]
+  def flatMap[B: Monoid](f: A => Parser[B]): Parser[B]
 
   def orElse(that: => Parser[A]): Parser[A] =
     (this, that) match
@@ -30,44 +32,83 @@ sealed trait Parser[A] {
       case (_, ParserFail()) => this
       case _ => ParserOrElse(this, that)
 
-  def product[B](that: => Parser[B]): Parser[(A, B)] =
+  def and(that: Parser[A]): Parser[A] =
+    (this, that) match
+      case (ParserFail(), _) => ParserFail()
+      case (_, ParserFail()) => ParserFail()
+      case _ => ParserOrElse(this, that)
+
+  def product[B: Monoid](that: => Parser[B]): Parser[(A, B)] =
     (this, that) match
       case (ParserFail(), _) => ParserFail()
       case (_, ParserFail()) => ParserFail()
       case _ => ParserProduct(this, that)
 
+  def repeat: Parser[A] = RepeatedParser(this)
+
   def parse(input: String): Result[A] = parse(input, 0)
   def parse(input: String, index: Int): Result[A]
+
+  def and(others: Parser[A]*): Parser[A] =
+    others.foldLeft(this)(_ orElse _)
 }
 
 object Parser {
   def int(value: Int): Parser[Int] = ParserInt(value)
   def string(value: String): Parser[String] = ParserString(value)
-  def fail[T]: Parser[T] = ParserFail()
+  def fail[T: Monoid]: Parser[T] = ParserFail()
 
   given Monoid[Parser[Int]] with
     def empty: Parser[Int] = ParserFail()
     def combine(x: Parser[Int], y: Parser[Int]): Parser[Int] = x.orElse(y)
-
-  given Functor[Parser] with
-    def map[A, B](fa: Parser[A])(f: A => B): Parser[B] =
-      fa.map(f)
-
-  given Applicative[Parser] with
-    def pure[A](x: A): Parser[A] =
-      x match
-        case x: Int => ParserInt(x).asInstanceOf[Parser[A]]
-        case x: String => ParserString(x).asInstanceOf[Parser[A]]
-        case _ => ParserFail()
-    def ap[A, B](ff: Parser[A => B])(fa: Parser[A]): Parser[B] =
-      ff.product(fa).map { case (f, a) => f(a) }
 }
 
-final case class ParserFail[T]() extends Parser[T]:
+/* -------------------------------------------------------------------------- */
+/*                                General kinds                               */
+/* -------------------------------------------------------------------------- */
+sealed abstract class InvalidParser[T: Monoid] extends Parser[T]:
+  override def map[B: Monoid](f: T => B): Parser[B] = ParserFail()
+  override def flatMap[B: Monoid](f: T => Parser[B]): Parser[B] = ParserFail()
+
+sealed abstract class ValidParser[A: Monoid] extends Parser[A]:
+  override def map[B: Monoid](f: A => B): Parser[B] =
+    ParserMap(this, f)
+
+  override def flatMap[B: Monoid](f: A => Parser[B]): Parser[B] =
+    ParserFlatMap(this, f)
+
+private class RepeatedParser[A: Monoid](parser: Parser[A]) extends Parser[A]:
+  override def map[B: Monoid](f: A => B): Parser[B] =
+    ParserMap(this, f)
+
+  override def flatMap[B: Monoid](f: A => Parser[B]): Parser[B] =
+    ParserFlatMap(this, f)
+
+  override def parse(input: String, index: Int): Result[A] =
+    def loop(index: Int, result: List[A]): (Int, List[A]) =
+      parser.parse(input, index) match
+        case fail: Failure => (index, result)
+        case Success(res, _, offset) => loop(offset, res :: result)
+
+    loop(index, Nil) match
+      case (_, Nil) => Result.success(???, input, index)
+      case (offset, results) =>
+        val output = results
+          .foldLeft(Monoid[A].empty) { (acc, next) =>
+            acc.combine(next)
+          }
+        Success(output, input, offset)
+
+/* -------------------------------------------------------------------------- */
+/*                                    Types                                   */
+/* -------------------------------------------------------------------------- */
+
+/* ------------------------------- Basic types ------------------------------ */
+final case class ParserFail[T: Monoid]() extends InvalidParser[T]:
   override def parse(input: String, index: Int): Result[T] =
     Failure("Bad parser", input, index)
 
-final case class ParserInt(value: Int) extends Parser[Int]:
+final case class ParserInt(value: Int) extends ValidParser[Int]:
   override def parse(input: String, index: Int): Result[Int] =
     if (input.startsWith(value.toString, index))
       Success(value, input, index + value.toString.size)
@@ -77,7 +118,7 @@ final case class ParserInt(value: Int) extends Parser[Int]:
         input,
         index
       )
-final case class ParserString(value: String) extends Parser[String]:
+final case class ParserString(value: String) extends ValidParser[String]:
   override def parse(input: String, index: Int): Result[String] =
     if (input.startsWith(value, index))
       Success(value, input, index + value.size)
@@ -88,24 +129,36 @@ final case class ParserString(value: String) extends Parser[String]:
         index
       )
 
-final case class ParserMap[A, B](source: Parser[A], f: A => B) extends Parser[B]:
+/* ------------------------------ Mapping types ----------------------------- */
+final case class ParserMap[A, B: Monoid](source: Parser[A], f: A => B) extends ValidParser[B]:
   override def parse(input: String, index: Int): Result[B] =
-    source.parse(input, index) match {
+    source.parse(input, index) match
       case fail: Failure => fail
       case Success(result, input, offset) =>
         Success(f(result), input, offset)
-    }
 
-final case class ParserOrElse[A, B](left: Parser[A], right: Parser[B]) extends Parser[A | B]:
-  override def parse(input: String, index: Int): Result[A | B] =
-    left.parse(input, index) match {
+final case class ParserFlatMap[A, B: Monoid](source: Parser[A], f: A => Parser[B]) extends ValidParser[B]:
+  override def parse(input: String, index: Int): Result[B] =
+    source.parse(input, index) match
+      case fail: Failure => fail
+      case Success(result, input, offset) =>
+        f(result).parse(input, offset)
+
+/* ------------------------------- Combinators ------------------------------ */
+final case class ParserOrElse[A: Monoid](left: Parser[A], right: Parser[A]) extends ValidParser[A]:
+  override def parse(input: String, index: Int): Result[A] =
+    left.parse(input, index) match
       case fail: Failure => right.parse(input, index)
       case success: Success[?] => success
-    }
 
-final case class ParserProduct[A, B](left: Parser[A], right: Parser[B]) extends Parser[(A, B)]:
+final case class ParserAnd[A: Monoid](left: Parser[A], right: Parser[A]) extends ValidParser[A]:
+  override def parse(input: String, index: Int): Result[A] =
+    left.parse(input, index) match
+      case Success(res, _, offset) => right.parse(input, offset).map(_ |+| res)
+      case fail: Failure => fail
+
+final case class ParserProduct[A: Monoid, B: Monoid](left: Parser[A], right: Parser[B]) extends ValidParser[(A, B)]:
   override def parse(input: String, index: Int): Result[(A, B)] =
     left.parse(input, index) match
       case fail: Failure => fail
-      case Success(leftResult, _, offset) =>
-        right.parse(input, offset).map((leftResult, _))
+      case Success(leftResult, _, offset) => right.parse(input, offset).map((leftResult, _))
