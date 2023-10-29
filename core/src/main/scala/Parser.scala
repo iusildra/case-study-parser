@@ -25,15 +25,13 @@ sealed trait Parser[A] {
     ParserMap(this, f)
 
   def parse(input: String): Result[A] = {
-    def loop[A](parser: Parser[A], index: Int): Result[A] =
+    def loop[T](parser: Parser[T], index: Int): Result[T] =
       parser match {
         case ParserMap(source, f) =>
           loop(source, index) match {
-            case Failure(reason, input, start) => Failure(reason, input, start)
-            case Success(result, input, offset) =>
-              Success(f(result), input, offset)
+            case fail: Failure => fail
+            case Success(result, input, offset) => Success(f(result), input, offset)
           }
-
         case ParserString(value) =>
           if (input.startsWith(value, index))
             Success(value, input, index + value.size)
@@ -52,12 +50,9 @@ object Parser {
   def string(value: String): Parser[String] = ParserString(value)
 
   final case class ParserString(value: String) extends Parser[String]
-  final case class ParserMap[A, B](source: Parser[A], f: A => B)
-      extends Parser[B]
+  final case class ParserMap[A, B](source: Parser[A], f: A => B) extends Parser[B]
 
-  implicit val parserFunctorInstance: Functor[Parser] =
-    new Functor[Parser] {
-      def map[A, B](fa: Parser[A])(f: A => B): Parser[B] =
-        fa.map(f)
-    }
+  given Functor[Parser] with
+    def map[A, B](fa: Parser[A])(f: A => B): Parser[B] =
+      fa.map(f)
 }
