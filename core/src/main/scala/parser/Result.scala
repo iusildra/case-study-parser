@@ -17,7 +17,13 @@
 package parser
 
 /** Indicates the result of a parse. */
-sealed trait Result[+A]
+sealed trait Result[+A]:
+  def map[B](f: A => B): Result[B] =
+    this match
+      case Success(result, input, offset) =>
+        Success(f(result), input, offset)
+      case failure: Failure => failure
+
 object Result {
   def success[A](result: A, input: String, offset: Int): Result[A] =
     Success(result, input, offset)

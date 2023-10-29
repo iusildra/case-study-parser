@@ -18,10 +18,9 @@ package parser
 
 import cats.Functor
 import cats.kernel.Monoid
+import cats.Applicative
 
 sealed trait Parser[A] {
-  import Parser._
-
   def map[B](f: A => B): Parser[B] =
     ParserMap(this, f)
 
@@ -31,49 +30,82 @@ sealed trait Parser[A] {
       case (_, ParserFail()) => this
       case _ => ParserOrElse(this, that)
 
-  def parse(input: String): Result[A] = {
-    def loop[T](parser: Parser[T], index: Int): Result[T] =
-      parser match {
-        case ParserMap(source, f) =>
-          loop(source, index) match {
-            case fail: Failure => fail
-            case Success(result, input, offset) =>
-              Success(f(result), input, offset)
-          }
+  def product[B](that: => Parser[B]): Parser[(A, B)] =
+    (this, that) match
+      case (ParserFail(), _) => ParserFail()
+      case (_, ParserFail()) => ParserFail()
+      case _ => ParserProduct(this, that)
 
-        case ParserString(value) =>
-          if (input.startsWith(value, index))
-            Success(value, input, index + value.size)
-          else
-            Failure(
-              s"input did not start with $value at index $index",
-              input,
-              index
-            )
-        case ParserOrElse(left, right) =>
-          loop(left, index) match {
-            case fail: Failure => loop(right, index)
-            case success: Success[?] => success
-          }
-        case ParserFail() => Failure("Bad parser", input, index)
-      }
-
-    loop(this, 0)
-  }
+  def parse(input: String): Result[A] = parse(input, 0)
+  def parse(input: String, index: Int): Result[A]
 }
+
 object Parser {
+  def int(value: Int): Parser[Int] = ParserInt(value)
   def string(value: String): Parser[String] = ParserString(value)
   def fail[T]: Parser[T] = ParserFail()
 
-  final case class ParserFail[T]() extends Parser[T]
-  final case class ParserString(value: String) extends Parser[String]
-  final case class ParserMap[A, B](source: Parser[A], f: A => B) extends Parser[B]
-  final case class ParserOrElse[A, B](left: Parser[A], right: Parser[B]) extends Parser[A | B]
+  given Monoid[Parser[Int]] with
+    def empty: Parser[Int] = ParserFail()
+    def combine(x: Parser[Int], y: Parser[Int]): Parser[Int] = x.orElse(y)
 
   given Functor[Parser] with
     def map[A, B](fa: Parser[A])(f: A => B): Parser[B] =
       fa.map(f)
-  given Monoid[Parser[Int]] with
-    def empty: Parser[Int] = ParserFail()
-    def combine(x: Parser[Int], y: Parser[Int]): Parser[Int] = x.orElse(y)
+
+  given Applicative[Parser] with
+    def pure[A](x: A): Parser[A] =
+      x match
+        case x: Int => ParserInt(x).asInstanceOf[Parser[A]]
+        case x: String => ParserString(x).asInstanceOf[Parser[A]]
+        case _ => ParserFail()
+    def ap[A, B](ff: Parser[A => B])(fa: Parser[A]): Parser[B] =
+      ff.product(fa).map { case (f, a) => f(a) }
 }
+
+final case class ParserFail[T]() extends Parser[T]:
+  override def parse(input: String, index: Int): Result[T] =
+    Failure("Bad parser", input, index)
+
+final case class ParserInt(value: Int) extends Parser[Int]:
+  override def parse(input: String, index: Int): Result[Int] =
+    if (input.startsWith(value.toString, index))
+      Success(value, input, index + value.toString.size)
+    else
+      Failure(
+        s"input did not start with $value at index $index",
+        input,
+        index
+      )
+final case class ParserString(value: String) extends Parser[String]:
+  override def parse(input: String, index: Int): Result[String] =
+    if (input.startsWith(value, index))
+      Success(value, input, index + value.size)
+    else
+      Failure(
+        s"input did not start with $value at index $index",
+        input,
+        index
+      )
+
+final case class ParserMap[A, B](source: Parser[A], f: A => B) extends Parser[B]:
+  override def parse(input: String, index: Int): Result[B] =
+    source.parse(input, index) match {
+      case fail: Failure => fail
+      case Success(result, input, offset) =>
+        Success(f(result), input, offset)
+    }
+
+final case class ParserOrElse[A, B](left: Parser[A], right: Parser[B]) extends Parser[A | B]:
+  override def parse(input: String, index: Int): Result[A | B] =
+    left.parse(input, index) match {
+      case fail: Failure => right.parse(input, index)
+      case success: Success[?] => success
+    }
+
+final case class ParserProduct[A, B](left: Parser[A], right: Parser[B]) extends Parser[(A, B)]:
+  override def parse(input: String, index: Int): Result[(A, B)] =
+    left.parse(input, index) match
+      case fail: Failure => fail
+      case Success(leftResult, _, offset) =>
+        right.parse(input, offset).map((leftResult, _))
