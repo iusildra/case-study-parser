@@ -23,6 +23,8 @@ sealed trait Result[+A]:
       case Success(result, input, offset) =>
         Success(f(result), input, offset)
       case failure: Failure => failure
+  
+  def get: A
 
 object Result {
   def success[A](result: A, input: String, offset: Int): Result[A] =
@@ -39,7 +41,9 @@ object Result {
   *   - offset is the index of where any remaining input starts.
   */
 final case class Success[A](result: A, input: String, offset: Int)
-    extends Result[A]
+    extends Result[A]:
+
+  override def get: A = result
 
 /** The parse failed.
   *
@@ -48,4 +52,6 @@ final case class Success[A](result: A, input: String, offset: Int)
   *   - start is the index into input of where the parser started from
   */
 final case class Failure(reason: String, input: String, start: Int)
-    extends Result[Nothing]
+    extends Result[Nothing]:
+
+  override def get: Nothing = throw new NoSuchElementException(reason)
