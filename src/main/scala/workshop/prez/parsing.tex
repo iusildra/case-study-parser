@@ -1,0 +1,76 @@
+\section{Parsing expressions}
+\subsection{Binary expressions}
+
+\begin{frame}[fragile]
+  \frametitle{Binary expression ADT}
+
+  \begin{definition}
+    \begin{lstlisting}
+      sealed trait Expr:
+        def +(that: Expr): Expr
+  
+      case class Num(value: Int) extends Expr
+      case class Var(name: String) extends Expr
+      case class Add(left: Expr, right: Expr) extends Expr
+    \end{lstlisting}
+  \end{definition}
+\end{frame}
+
+\begin{frame}[fragile]
+  \frametitle{Addition parser}
+  \begin{overprint}
+    \onslide<1>
+    Given the following parsers:
+  
+    \begin{multicols}{2}
+      \begin{description}
+        \item[number] [0-9]+
+        \item[variable] [a-zA-Z]+
+        \item[plus] [ ]*+[ ]*
+        \item[expr] variable \textbar{} number
+      \end{description}
+    \end{multicols}
+    \begin{lstlisting}
+      val parser0: Parser[Add] =
+        (expr, plus, expr).mapN((l, _, r) => l + r)
+      parser0.parse("x + 1 + a").get // Add(Var("x"), Num(1))
+    \end{lstlisting}
+    \begin{lstlisting}
+      val parser1: Parser[Add] =
+        (expr, plus, parser1 orElse expr).mapN((l, _, r) => l + r)
+      parser1.parse("x + 1 + a").get // NullPointerException
+    \end{lstlisting}
+    \begin{lstlisting}
+      def parser2: Parser[Add] =
+        (expr, plus, parser2 orElse expr).mapN((l, _, r) => l + r)
+      parser2.parse("x + 1 + a").get // StackOverflowError
+    \end{lstlisting}
+    \onslide<2>
+    \textbf{Solution} Delay the parser's evaluation
+    \begin{lstlisting}
+      // In Parser.scala
+      object Parser:
+        def lzy[A](parser: => Parser[A]) = Delayed(parser)
+
+      class Delayed[A](p: => Parser[A]) extends Parser[A]:
+        lazy val cached = p
+        def parse(input: String, index: Int): Result[A] =
+          cached.parse(input, index)
+    \end{lstlisting}
+    \begin{lstlisting}
+      // Addition parser
+      val parser3: Parser[Add] =
+        (expr, plus, lzy(parser3) orElse expr).mapN((l,_,r) => l+r)
+
+      parser3.parse("x + 1 + a").get
+      // : Add = Add(Var("x"), Add(Num(1), Var("a")))
+    \end{lstlisting}
+  \end{overprint}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Json parser}
+
+  You can now try to implement a JSON parser :)
+
+\end{frame}

@@ -1,0 +1,26 @@
+@startuml tc-hierarchy
+hide empty members
+
+interface Functor<F[_]> {
+  + map[A, T](fa: F[A])(f: A =] T): F[T]
+}
+interface Semigroupal<F[_]> {
+  + product[A, T](fa: F[A], fb: F[T]): F[(A, T)]
+}
+interface Applicative<F[_]> implements Functor, Semigroupal {
+  + pure[A](a: A): F[A]
+  + ap[A, T](ff: F[A => T])(fa: F[A]): F[T]
+}
+interface Monad<F[_]> implements Applicative {
+  + flatMap[A, T](fa: F[A])(f: A =] F[T]): F[T]
+}
+
+interface Semigroup<A> {
+  + combine(x: A, y: A): A
+}
+interface Monoid<A> implements Semigroup {
+  + {method}empty: A
+}
+
+Semigroup -[hidden]r- Applicative
+@enduml

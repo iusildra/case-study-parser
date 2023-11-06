@@ -1,0 +1,29 @@
+@startuml parser-structure
+hide empty members
+
+class param
+class paramList
+class class
+class method
+class function
+class BodyParser
+class source
+class name
+class literal
+class val
+
+source --> BodyParser
+
+BodyParser <--> class
+BodyParser <--> function
+BodyParser <--> method
+BodyParser --> name
+BodyParser --> literal
+BodyParser <-> val
+
+paramList -> param
+function --> paramList
+method --> paramList
+class --> paramList
+
+@enduml

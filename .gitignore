@@ -23,3 +23,18 @@ metals.sbt
 
 # npm
 node_modules/
+
+.scala-build
+*.class
+*.tasty
+*.aux
+*.log
+*.synctex.gz
+*.toc
+*.out
+*.blg
+*.fdb_latexmk
+*.fls
+*.nav
+*.snm
+*.vrb
