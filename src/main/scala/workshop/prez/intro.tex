@@ -2,7 +2,7 @@
 \begin{frame}[fragile]
   \frametitle{ADTs}
 
-  An Algrebraic Data Type is a composite type made of other types
+  An Algebraic Data Type is a composite type made of other types
 
   \begin{example}
     \begin{lstlisting}
@@ -37,6 +37,8 @@
        & Runtime failure & Possible       & Possible            & No            & \\
     \end{tabular}
   \end{table}
+
+  \onslide<2->
 
   \begin{table}[h]
     \centering
@@ -134,7 +136,7 @@
       \item Combinators \(f\): \(\forall c_1, c_2 \in \mathcal{P}, f(c_1, c_2) \in \mathcal{P}\)
       \item Interpreters \(z\): \(\forall c \in \mathcal{P}, x \notin \mathcal{P}, z(c, x) \in \mathcal{A}\)
     \end{itemize}
-  
+
     \begin{example}[Reification methods]
       \begin{lstlisting}[gobble=8]
         // Constructor
@@ -145,21 +147,23 @@
         Parser[A].parse(input: String): A
       \end{lstlisting}
     \end{example}
-    
+
     \onslide<2>
     For each abstract concept, we'll have a concrete implementation (with a \texttt{case class}) and reification methods. For instance, for a simple string parser and a simple mapper:
-    
-    \begin{lstlisting}
-      trait Parser[+A]:
-        def map[B](f: A => B): Parser[B] = ParserMap(this, f)
-      object Parser:
-        def string(s: String): Parser[String] = ParserString(s)
-    
-      case class ParserString(s: String) extends Parser[String]
-      case class ParserMap[A, B](
-        source: Parser[A],
-        f: A => B
-      ) extends Parser[B]
-    \end{lstlisting}
+
+    \begin{example}[Reification classes]
+      \begin{lstlisting}[gobble=8]
+        trait Parser[+A]:
+          def map[B](f: A => B): Parser[B] = ParserMap(this, f)
+        object Parser:
+          def string(s: String): Parser[String] = ParserString(s)
+      
+        case class ParserString(s: String) extends Parser[String]
+        case class ParserMap[A, B](
+          source: Parser[A],
+          f: A => B
+        ) extends Parser[B]
+      \end{lstlisting}
+    \end{example}
   \end{overprint}
 \end{frame}

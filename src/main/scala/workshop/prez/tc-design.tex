@@ -20,7 +20,7 @@
 
   \texttt{using} clause defines a value to be injected by the compiler, based on the expected type among the \texttt{given} values
 
-  \begin{example}[Given/using]
+  \begin{example}
     \begin{lstlisting}
       given life: Int = 42
       def foo(using i: Int): Int = i
@@ -36,7 +36,7 @@
 \begin{frame}[fragile]
   \frametitle{Variance}
 
-  \begin{definition}[Variance]
+  \begin{definition}
     Describe the relation between generic types. Given a generic type \(\mathcal{F}\):
     \begin{description}
       \item[Invariant] \(\forall A,B\quad A \neq B \Leftrightarrow \mathcal{F}[A] \neq \mathcal{F}[B]\)
@@ -44,6 +44,8 @@
       \item[Contravariant] \(\forall A,B\quad A <: B \Leftrightarrow \mathcal{F}[B] <: \mathcal{F}[A]\)
     \end{description}
   \end{definition}
+
+  \onslide<2->
 
   It allows a more flexible design, but has some constraints for type-safety. For a covariant type, we cannot use it's type param as method param type
 
@@ -53,69 +55,67 @@
         def foo[B >: A](x: B) = ??? // cannot use A as param type
     \end{lstlisting}
   \end{example}
-
 \end{frame}
 
 \subsection{Type classe}
 
 \begin{frame}[fragile]
-  \frametitle{Usual OOP way}
+  \frametitle{Why type classes?}
 
-  \begin{example}[Inheritance]
-    \begin{lstlisting}
-      trait Encoder      { def encode: String }
-      trait Combiner[A] { def combine(a: A): String }
+  \begin{overprint}
+    \onslide<1>
+    \begin{example}[Inheritance]
+      \begin{lstlisting}[gobble=8]
+        trait Encoder      { def encode: String }
+        trait Combiner[A] { def combine(a: A): String }
+  
+        abstract class Animal extends Encoder
+          with Combiner[Animal]
+  
+        case class Cat() extends Animal:
+          override def encode(): String
+          override def combine(b: Animal): String
+        case class Dog() extends Animal:
+          override def encode(): String
+          override def combine(b: Animal): String
+      \end{lstlisting}
+    \end{example}
 
-      abstract class Animal extends Encoder
-        with Combiner[Animal]
+    \onslide<2>
 
-      case class Cat() extends Animal:
-        override def encode(): String
-        override def combine(b: Animal): String
-      case class Dog() extends Animal:
-        override def encode(): String
-        override def combine(b: Animal): String
-    \end{lstlisting}
-  \end{example}
-\end{frame}
+    \begin{example}[Composition]
+      \begin{lstlisting}[gobble=8]
+        trait Encoder[A]  { def encode (a: A): String }
+        trait Combiner[A] { def combine(a: A, b: A): String }
+    
+        abstract class Animal(
+          encoder: Encoder[Animal],
+          combiner: Combiner[Animal]
+        ):
+          def encode = encoder.encode(this)
+          def combine(b: Animal) = combiner.combine(this, b)
+      \end{lstlisting}
+    \end{example}
 
-\begin{frame}[fragile]
-  \frametitle{Better design}
+    \onslide<3>
 
-  \begin{example}[Composition]
-    \begin{lstlisting}
-      trait Encoder[A]  { def encode (a: A): String }
-      trait Combiner[A] { def combine(a: A, b: A): String }
-
-      abstract class Animal(
-        encoder: Encoder[Animal],
-        combiner: Combiner[Animal]
-      ):
-        def encode = encoder.encode(this)
-        def combine(b: Animal) = combiner.combine(this, b)
-    \end{lstlisting}
-  \end{example}
-\end{frame}
-
-\begin{frame}[fragile]
-  \frametitle{Functional way}
-
-  \begin{example}[Type class]
-    \begin{lstlisting}
-      trait Encoder[-A] { def encode (a: A): String }
-
-      abstract class Animal
-
-      extension [A](a: A)(using encoder: Encoder[A])
-        def encode: String = encoder.encode(a)
-
-      given catEncoder: Encoder[Cat] with
-        def encode(a: Cat) = "A cat"
-
-      aCat.encode // "A cat"
-      // rewritten as encode(aCat, catEncoder)
-    \end{lstlisting}
-  \end{example}
+    \begin{example}[Type class]
+      \begin{lstlisting}[gobble=8]
+        trait Encoder[-A] { def encode (a: A): String }
+    
+        abstract class Animal
+    
+        extension [A](a: A)(using encoder: Encoder[A])
+          def encode: String = encoder.encode(a)
+    
+        given catEncoder: Encoder[Cat] with
+          def encode(a: Cat) = "A cat"
+    
+        aCat.encode // "A cat"
+        // rewritten as encode(aCat, catEncoder)
+      \end{lstlisting}
+    \end{example}
+  \end{overprint}
 \end{frame}
 
 \begin{frame}
@@ -221,7 +221,6 @@
 
   \textbf{Problem} Need to transform a value inside any kind of (unrelated) data structure
 
-  % \onslide<2->
   \begin{definition}[Functor]
     \begin{lstlisting}
       trait Functor[F[_]]:
@@ -229,7 +228,7 @@
     \end{lstlisting}
   \end{definition}
 
-  % \onslide<3->
+  \onslide<2->
   \begin{itemize}
     \item Single abstraction for any \ul{generic} type
           \begin{itemize}
@@ -253,6 +252,8 @@
     \item No constructors, one combinator \& interpreter
   \end{enumerate}
 
+  \onslide<2->
+
   \begin{lstlisting}[gobble=4]
     trait Parser[+A]:
       def map[B](f: A => B): Parser[B] = ParserMap(this, f)
@@ -272,7 +273,6 @@
 
   \textbf{Problem} Need to combine any kind of values
 
-  % \onslide<2->
   \begin{definition}[Monoid]
     \begin{lstlisting}
       trait Monoid[A]:
@@ -281,7 +281,7 @@
     \end{lstlisting}
   \end{definition}
 
-  % \onslide<3->
+  \onslide<2->
   \begin{itemize}
     \item Single abstraction for \ul{any} type
     \item Can serve as a AND or OR operation
@@ -305,6 +305,7 @@
     \item No constructors, one combinator \& interpreter
   \end{enumerate}
 
+  \onslide<2->
   \begin{lstlisting}[gobble=4]
     trait Parser[+A]:
       def orElse[B](that: => Parser[B]): Parser[A | B] =
@@ -333,6 +334,7 @@
     \end{lstlisting}
   \end{definition}
 
+  \onslide<2->
   \begin{itemize}
     \item Single abstraction for \ul{generic} type
     \item Different from \texttt{Semigroup}
@@ -352,6 +354,7 @@
     \item No constructors, one combinator \& interpreter
   \end{enumerate}
 
+  \onslide<2->
   \begin{lstlisting}[gobble=4]
     trait Parser[+A]:
       def product[T >: A, B](that: Parser[B]): Parser[(T, B)] =
@@ -424,6 +427,7 @@
     \end{lstlisting}
   \end{definition}
 
+  \onslide<2->
   \begin{itemize}
     \item Single abstraction for \ul{generic} type
     \item Gives access to the \texttt{mapN} method, easier to manipulate than \texttt{product}
@@ -461,6 +465,7 @@
     \end{lstlisting}
   \end{definition}
 
+  \onslide<2->
   \begin{itemize}
     \item Single abstraction for any \ul{generic} type
     \item Continue the chain only on success
@@ -480,6 +485,7 @@
     \item No constructors, one combinator \& interpreter
   \end{enumerate}
 
+  \onslide<2->
   \begin{lstlisting}[gobble=4]
     trait Parser[+A]:
       def flatMap[B](f: A => Parser[B]): Parser[B] =
