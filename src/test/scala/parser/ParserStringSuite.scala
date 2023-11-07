@@ -25,7 +25,7 @@ class ParserStringSuite extends HedgehogSuite {
       // We include 0 in the range because parsing an empty String is valid
       expected <- Gen.string(Gen.latin1, Range.linear(0, 10)).forAll
       suffix <- Gen.string(Gen.latin1, Range.linear(0, 35)).forAll
-      input = expected ++ suffix
+      input = expected + suffix
       result = Parser.string(expected).parse(input)
     } yield result match {
       case parser.Failure(_, _, _) =>
@@ -40,7 +40,7 @@ class ParserStringSuite extends HedgehogSuite {
       prefix <- Gen.string(Gen.latin1, Range.linear(1, 35)).forAll
       // Make sure we're not looking for an empty String, because that will match anything
       expected <- Gen.string(Gen.latin1, Range.linear(1, 10)).forAll
-      input = prefix ++ expected
+      input = prefix + expected
       result = Parser.string(expected).parse(input)
     } yield result match {
       case parser.Failure(_, _, _) => success

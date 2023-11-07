@@ -17,15 +17,14 @@ ThisBuild / developers := List(
 
 ThisBuild / tlSonatypeUseLegacyHost := true
 
-lazy val scala213 = "2.13.12"
-lazy val scala3 = "3.1.3"
+// lazy val scala213 = "2.13.11"
+lazy val scala3 = "3.3.0"
 
-ThisBuild / crossScalaVersions := Seq(scala213, scala3)
-ThisBuild / scalaVersion := scala213 // the default Scala
+// ThisBuild / crossScalaVersions := Seq(scala213, scala3)
+ThisBuild / scalaVersion := scala3 // the default Scala
 ThisBuild / scalafixDependencies += "com.github.liancheng" %% "organize-imports" % "0.6.0"
 ThisBuild / semanticdbEnabled := true
 ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
-ThisBuild / tlSitePublishBranch := Some("solution/all")
 
 // Run this (build) to do everything involved in building the project
 commands += Command.command("build") { state =>
@@ -34,60 +33,22 @@ commands += Command.command("build") { state =>
     "test" ::
     "scalafixAll" ::
     "scalafmtAll" ::
-    "docs/tlSite" ::
     state
 }
-lazy val css = taskKey[Unit]("Build the CSS")
 
-lazy val root = tlCrossRootProject.aggregate(core, docs)
-
-lazy val core = crossProject(JVMPlatform, JSPlatform)
-  .crossType(CrossType.Pure)
-  .in(file("core"))
+lazy val root = project
+  .in(file("."))
   .settings(
     name := "case-study-parser",
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core" % "2.10.0",
       "org.typelevel" %%% "cats-effect" % "3.5.1",
+      ("org.scalameta" %% "scalameta" % "4.8.10").cross(CrossVersion.for3Use2_13),
       "org.scalameta" %%% "munit" % "0.7.29" % Test,
       "org.typelevel" %%% "munit-cats-effect-3" % "1.0.7" % Test,
       "qa.hedgehog" %%% "hedgehog-core" % "0.10.1" % Test,
       "qa.hedgehog" %%% "hedgehog-runner" % "0.10.1" % Test,
       "qa.hedgehog" %%% "hedgehog-munit" % "0.10.1" % Test,
-      "qa.hedgehog" %%% "hedgehog-sbt" % "0.10.1" % Test
+      "qa.hedgehog" %%% "hedgehog-sbt" % "0.10.1" % Test,
     )
   )
-
-lazy val docs = project
-  .in(file("site"))
-  .settings(
-    mdocIn := file("docs/pages"),
-    css := {
-      val src = file("docs/css")
-      val dest1 = mdocOut.value
-      val dest2 = (laikaSite / target).value
-      val cmd1 =
-        s"npx tailwindcss -i ${src.toString}/creative-scala.css -o ${dest1.toString}/creative-scala.css"
-      val cmd2 =
-        s"npx tailwindcss -i ${src.toString}/creative-scala.css -o ${dest2.toString}/creative-scala.css"
-      cmd1 !
-
-      cmd2 !
-    },
-    Laika / sourceDirectories += file("docs/templates"),
-    laikaTheme := Theme.empty,
-    laikaExtensions ++= Seq(
-      laika.markdown.github.GitHubFlavor,
-      laika.parse.code.SyntaxHighlighting,
-      CreativeScalaDirectives
-    ),
-    tlSite := Def
-      .sequential(
-        mdoc.toTask(""),
-        css,
-        laikaSite
-      )
-      .value
-  )
-  .enablePlugins(TypelevelSitePlugin)
-  .dependsOn(core.jvm)
