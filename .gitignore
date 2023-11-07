@@ -23,3 +23,7 @@ metals.sbt
 
 # npm
 node_modules/
+
+.scala-build
+*.class
+*.tasty

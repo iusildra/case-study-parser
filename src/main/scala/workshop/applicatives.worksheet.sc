@@ -1,5 +1,5 @@
 import cats.Applicative
-// import cats.syntax.apply._
+import cats.syntax.apply._
 
 val list1 = List(1, 2, 3)
 val list2 = List(4, 5, 6)
@@ -19,3 +19,4 @@ val (intList1, intList2) = (List(0, 1), List(5, 10, 15))
 val adder = intList1.map(i1 => (i2: Int) => f(i1, i2))
 
 applyToAll(adder, intList2)
+adder.ap(intList2)

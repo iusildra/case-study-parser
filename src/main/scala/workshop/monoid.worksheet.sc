@@ -1,13 +1,12 @@
-trait Monoid[T]:
-  def empty: T
-  def combine(a: T, b: T): T
+import cats.Monoid
+import cats.instances.int._
 
-given Monoid[Int] with
-  def empty: Int = 0
-  def combine(a: Int, b: Int): Int = a + b
+val aMonoid = Monoid[Int]
+aMonoid.empty
+aMonoid.combine(1, 2)
 
-def combineAll[A](fa: Seq[A])(using monoid: Monoid[A]): A =
-  fa.foldLeft(monoid.empty)(monoid.combine)
+extension [A](fa: Seq[A])(using monoid: Monoid[A])
+  def combineAll = fa.foldLeft(monoid.empty)(monoid.combine)
 
-combineAll(List(1, 2, 3))
-combineAll(Seq(3, 2, 3))
+List(1, 2, 3).combineAll
+Vector(1, 2, 3).combineAll
