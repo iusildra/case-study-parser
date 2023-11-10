@@ -1,3 +1,4 @@
+import cats.Apply
 import scala.collection.mutable.Queue
 import parser.Parser
 import parser.Parser.{given, _}
@@ -7,27 +8,19 @@ case class Ident(value: String)
 case class Param(name: Ident, tpe: Ident)
 case class Method(name: Ident, params: Queue[Param], tpe: Ident)
 
-val whitespace =
-  Parser
-    .chars(' ', '\t', '\n')
-    .zeroOrMore
-    .combineAll
+val whitespace = Parser.chars(' ').zeroOrMore.combineAll
 
-val typeParamSepParser =
-  whitespace *> Parser.char(':') <* whitespace
-val paramSepParser =
-  whitespace *> Parser.char(',') <* whitespace
+val typeSep = whitespace *> Parser.char(':') <* whitespace
+val paramSep = whitespace *> Parser.char(',') <* whitespace
 
 val identParser =
   Parser.alphas.oneOrMore.combineAll.map(s => Ident(s))
 val paramParser =
-  identParser
-    .product(typeParamSepParser)
-    .product(identParser)
-    .map { case ((a, _), b) => Param(a, b) }
+  (identParser <* typeSep, identParser)
+    .mapN { Param(_, _) }
 
-val paramListParser =
-  (paramParser <* paramSepParser).zeroOrMore
+val paramList =
+  (paramParser <* paramSep).zeroOrMore
     .combineWith(Queue.empty)(_ :+ _)
     .product(paramParser.orElse(Parser.empty))
     .map {
@@ -35,11 +28,16 @@ val paramListParser =
       case (a, null) => a
     }
 
+val methodName = Parser.string("def ") *> (identParser)
+val methodParams = char('(') *> paramList <* char(')') 
+val methodType = typeSep *> identParser
 val methodParser =
-  (Parser.string("def ") *> (identParser))
-    .product(char('(') *> paramListParser <* char(')'))
-    .product(typeParamSepParser *> identParser)
-    .map { case ((a, b), c) => Method(a, b, c) }
+  (methodName, methodParams, methodType)
+    .mapN { case (a, b, c) => Method(a, b, c) }
+
+methodName.flatMap:
+  case Ident(name) if name.length() < 10 => ???
+  case Ident(name) => ???
 
 methodParser.parse("def foo(): Int").get
 methodParser.parse("def foo(x: Int): Int").get
@@ -56,4 +54,3 @@ stringOrInt.parse("abc", 0).get match
 stringOrInt.parse("123", 0).get match
   case s: String => s"String: $s"
   case i: Int => s"Int: $i"
-
