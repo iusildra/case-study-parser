@@ -31,6 +31,19 @@ sealed trait Parser[+A] {
 object Parser {
   def int(value: Int): Parser[Int] = ParserInt(value)
   def string(value: String): Parser[String] = ParserString(value)
+  def char(value: Char): Parser[String] = ParserString(value.toString)
+  // val digits: Parser[Int] =
+  //   (0 to 9)
+  //     .map(Parser.int)
+  //     .foldLeft[Parser[Int]](ParserFail)(_ orElse _)
+
+  // val alphas = (('a' to 'z') ++ ('A' to 'Z'))
+  //   .map(Parser.char)
+  //   .foldLeft[Parser[String]](ParserFail)(_ orElse _)
+
+  // def chars(chars: Char*) = chars
+  //   .map(Parser.char)
+  //   .foldLeft[Parser[String]](ParserFail)(_ orElse _)
   given intMonoid: Monoid[Int] with
     def empty: Int = 0
     def combine(x: Int, y: Int): Int = x * 10 + y
@@ -39,6 +52,13 @@ object Parser {
 /* -------------------------------------------------------------------------- */
 /*                                General kinds                               */
 /* -------------------------------------------------------------------------- */
+object ParserFail extends Parser[Nothing]:
+  override def map[B](f: Nothing => B): Parser[B] = this
+  // override def flatMap[B](f: Nothing => Parser[B]): Parser[B] = this
+  override def parse(input: String, index: Int): Result[Nothing] = throw new UnsupportedOperationException(
+    "Cannot parse with ParserFail"
+  )
+
 /* ------------------------------- Basic types ------------------------------ */
 final case class ParserInt(value: Int)(using Monoid[Int]) extends Parser[Int]:
   override def parse(input: String, index: Int): Result[Int] =
