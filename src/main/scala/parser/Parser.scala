@@ -32,6 +32,7 @@ object Parser {
   def int(value: Int): Parser[Int] = ParserInt(value)
   def string(value: String): Parser[String] = ParserString(value)
   def char(value: Char): Parser[String] = ParserString(value.toString)
+  val empty: NullParser = NullParser()
   // val digits: Parser[Int] =
   //   (0 to 9)
   //     .map(Parser.int)
@@ -60,6 +61,9 @@ object ParserFail extends Parser[Nothing]:
   )
 
 /* ------------------------------- Basic types ------------------------------ */
+final case class NullParser() extends Parser[Null]:
+  override def parse(input: String, index: Int): Result[Null] = Success(null, input, index)
+
 final case class ParserInt(value: Int)(using Monoid[Int]) extends Parser[Int]:
   override def parse(input: String, index: Int): Result[Int] =
     if (input.startsWith(value.toString, index))
