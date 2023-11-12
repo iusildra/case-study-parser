@@ -19,7 +19,7 @@ package parser
 /** Indicates the result of a parse. */
 sealed trait Result[+A]:
   def map[B](f: A => B): Result[B]
-  def orElse[B >: A](other: => Result[B]): Result[B]
+  def orElse[B](other: => Result[B]): Result[A | B]
 
   def get: A
 
@@ -44,7 +44,7 @@ final case class Success[A](result: A, input: String, offset: Int) extends Resul
   override def map[B](f: A => B): Result[B] =
     Success(f(result), input, offset)
 
-  override def orElse[B >: A](other: => Result[B]): Result[B] = this
+  override def orElse[B](other: => Result[B]): Result[A | B] = this
 
 /**
  * The parse failed.
