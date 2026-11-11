@@ -72,8 +72,8 @@ class ParserMapSuite extends HedgehogSuite {
     } yield (result1, result2) match
       case (_: parser.Failure, _) | (_, _: parser.Failure) =>
         fail(s"Parser failed on input $input1 or $input2 when it should have succeeded")
-      case (s1: parser.Success[?], s2: parser.Success[?]) =>
-        (s1.result, s2.result) match
+      case (parser.Success(result = intRes), parser.Success(result = strRes)) =>
+        (intRes, strRes) match
           case (i: Int, s: String) if i == intCase && s == strCase => success
           case _ => fail(s"Parser returned unexpected result")
   }
