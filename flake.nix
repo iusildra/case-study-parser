@@ -18,7 +18,7 @@
           imports = [ typelevel-nix.typelevelShell ];
           name = "case-study-parser-shell";
           typelevelShell = {
-            jdk.package = pkgs.jdk8;
+            jdk.package = pkgs.jdk25;
             nodejs.enable = true;
           };
         };

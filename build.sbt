@@ -17,8 +17,15 @@ ThisBuild / developers := List(
 
 ThisBuild / tlSonatypeUseLegacyHost := true
 
-// lazy val scala213 = "2.13.11"
-lazy val scala3 = "3.3.0"
+// Scala 3.9 dropped support for `-java-output-version 8` (minTargetVersion is
+// now 17; the compiler itself is Java 17 bytecode, so it cannot even run on 8).
+ThisBuild / tlJdkRelease := Some(25)
+
+// sbt-typelevel defaults this to 17; the checked-in ci.yml predated that default
+// and still pinned temurin@8.
+ThisBuild / githubWorkflowJavaVersions := Seq(JavaSpec.temurin("25"))
+
+lazy val scala3 = "3.9.0"
 
 // ThisBuild / crossScalaVersions := Seq(scala213, scala3)
 ThisBuild / scalaVersion := scala3 // the default Scala
@@ -49,6 +56,6 @@ lazy val root = project
       "qa.hedgehog" %%% "hedgehog-core" % "0.10.1" % Test,
       "qa.hedgehog" %%% "hedgehog-runner" % "0.10.1" % Test,
       "qa.hedgehog" %%% "hedgehog-munit" % "0.10.1" % Test,
-      "qa.hedgehog" %%% "hedgehog-sbt" % "0.10.1" % Test,
+      "qa.hedgehog" %%% "hedgehog-sbt" % "0.10.1" % Test
     )
   )
